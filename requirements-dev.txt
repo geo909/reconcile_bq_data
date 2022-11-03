@@ -1,0 +1,6 @@
+mypy
+pandas-stubs
+pre-commit
+setuptools
+protobuf
+pytest

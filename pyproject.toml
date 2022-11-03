@@ -1,0 +1,16 @@
+
+[build-system]
+requires = [
+    "setuptools>=54",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+# Mypy
+# Check https://mypy.readthedocs.io/en/stable/config_file.html#using-a-pyproject-toml
+#       https://jaredkhan.com/blog/mypy-pre-commit
+[tool.mypy]
+# mypy_path will vary (and may not be necessary)
+# for your project layout.
+mypy_path="./src"
+files="./src/**/*.py"
