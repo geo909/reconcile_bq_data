@@ -120,6 +120,15 @@ class QueryHandler:
         else:
             raise ValueError("Input (a,b) should satisfy 0 < a < b")
 
+    @time_function
+    def execute_query(self) -> QueryResult:
+
+        with self._engine.connect() as connection:
+            results_proxy = connection.execute(self._query)
+            result = QueryResult(results_proxy.fetchall())
+
+        return result
+
     def get_engine(self) -> Engine:
         if self.query_category.startswith("mysql_"):
             engine = self._engine_mysql()
@@ -130,27 +139,6 @@ class QueryHandler:
                 'query_category should be prefixed by "mysql_" or "bigquery_"'
             )
         return engine
-
-    def get_query(self) -> Select:
-        if self.query_category == "mysql_trips":
-            return self._query_mysql_trips()
-        elif self.query_category == "mysql_open":
-            return self._query_mysql_open()
-        elif self.query_category == "mysql_cnx":
-            return self._query_mysql_cnx()
-        elif self.query_category == "bigquery_trips":
-            return self._query_bigquery_trips()
-        else:
-            raise ValueError(f'Query category "{self.query_category}" is not valid.')
-
-    @time_function
-    def execute_query(self) -> QueryResult:
-
-        with self._engine.connect() as connection:
-            results_proxy = connection.execute(self._query)
-            result = QueryResult(results_proxy.fetchall())
-
-        return result
 
     def _engine_mysql(self) -> Engine:
 
@@ -167,6 +155,18 @@ class QueryHandler:
         )
 
         return engine
+
+    def get_query(self) -> Select:
+        if self.query_category == "mysql_trips":
+            return self._query_mysql_trips()
+        elif self.query_category == "mysql_open":
+            return self._query_mysql_open()
+        elif self.query_category == "mysql_cnx":
+            return self._query_mysql_cnx()
+        elif self.query_category == "bigquery_trips":
+            return self._query_bigquery_trips()
+        else:
+            raise ValueError(f'Query category "{self.query_category}" is not valid.')
 
     def _query_mysql_trips(self) -> Select:
 
