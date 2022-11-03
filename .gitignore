@@ -1,0 +1,11 @@
+*.ipynb
+.env
+.idea
+.ipynb_checkpoints
+.mypy_cache
+.python-version
+__pycache__
+build
+*.egg-info*
+*.pickle
+_trash
