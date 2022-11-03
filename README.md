@@ -6,4 +6,4 @@ A `.env` file as per `.env.templates`. Among others, it should include a google 
 
 ## Installation
 
-from the root folder run `pip install -e .`. Then import the module by `import sapbulkgenerator`
+from the root folder run `pip install -e .`. Then import the module by `import reconcilebqdata`
