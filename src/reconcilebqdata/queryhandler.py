@@ -68,6 +68,30 @@ def get_table(engine: Engine, schema, table) -> Table:
 
 
 class QueryHandler:
+
+    """
+    Class to handle a predefined query in MySQL or BigQuery. Given an id range and a category, this will return
+    a dictionary of ids and booking codes that are the result of such query.
+
+    Usage: define a QueryHandler object and run the update method
+
+    Args (pd.DataFrame):
+        query_category (Literal[QUERY_CATEGORIES]): A string among the elements of QUERY_CATEGORIES
+        id_range (Tuple[int, int]): A 2-tuple of the form (id_min, id_max)
+
+    Attributes:
+        _query_category (Literal[QUERY_CATEGORIES]): See query_category in args
+        _id_range (Tuple[int, int]): See id_range in args
+        _engine (Engine): sql alchemy engine object which either points to our MySQL or BigQuery
+        _query (Select): An sqlalchemy selectable representing the query we want to perform
+
+        result (QueryResult): The result of the query, according to the category
+        result_count_ids (int): A simple count of the ids
+        result_count_booking_codes: Distinct count of booking codes
+        updated_at (str): Timestamp for the time the update method was ran
+    """
+
+
     def __init__(
         self, query_category: Literal[QUERY_CATEGORIES], id_range: Tuple[int, int]
     ) -> None:
