@@ -5,9 +5,11 @@ from reconcilebqdata.config import (
     BQ_PROJECT_ID,
     BQ_CREDENTIALS_INFO,
 )
-import sqlalchemy as sa
-from sqlalchemy.engine.base import Engine
+from reconcilebqdata.aux import time_function
 from sqlalchemy import Table
+from sqlalchemy.engine.base import Engine
+from sqlalchemy.sql.selectable import Select
+import sqlalchemy as sa
 
 
 def get_table(engine: Engine, schema, table) -> Table:
@@ -36,3 +38,13 @@ def get_engine_bigquery() -> Engine:
     )
 
     return engine
+
+
+@time_function
+def execute_query(engine: Engine, query: Select) -> list:
+
+    with engine.connect() as connection:
+        results_proxy = connection.execute(query)
+        result = results_proxy.fetchall()
+
+    return result

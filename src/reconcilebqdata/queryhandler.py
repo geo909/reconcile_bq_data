@@ -1,15 +1,52 @@
-from reconcilebqdata.aux import time_function, get_timestamp
+from reconcilebqdata.aux import get_current_timestamp, time_function
 from reconcilebqdata.config import MYSQL_DATABASE
-from reconcilebqdata.databases import get_table, get_engine_mysql, get_engine_bigquery
+from reconcilebqdata.dbtools import (
+    get_table,
+    get_engine_mysql,
+    get_engine_bigquery,
+    execute_query,
+)
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.sql.selectable import Select
 from typing import Literal, TypedDict, Tuple
+from datetime import date
 import sqlalchemy as sa
-
-
 
 # Always prefix categories by "mysql_" or "bigquery_"
 QUERY_CATEGORIES = ("mysql_trips", "mysql_open", "mysql_cnx", "bigquery_trips")
+
+
+@time_function
+def get_bq_trip_id_range(date_min: date, date_max: date) -> tuple[int, int]:
+    """Helper function to be used for initializing an instance of a QueryHandler class.
+
+    Args:
+        date_min: Start date
+        date_max: End date
+
+    Returns:
+        A 2-tuple of the form (id_min, id_max)
+
+    """
+
+    if date_min >= date_max:
+        raise ValueError("Invalid date range")
+
+    engine = get_engine_bigquery()
+
+    table = get_table(engine, "booking_documents_production", "base_reporting_trips")
+
+    query = sa.select(
+        sa.func.min(table.columns.trip_id_trip),
+        sa.func.max(table.columns.trip_id_trip),
+    ).where(
+        (table.columns.booking_meta_state == "BOOKED")
+        & (table.columns.booking_date.between(date_min, date_max))
+    )
+
+    id_range = execute_query(engine, query)[0]
+
+    return id_range
 
 
 class QueryResult(TypedDict):
@@ -23,7 +60,7 @@ class QueryHandler:
     Class to handle a predefined query in MySQL or BigQuery. Given an id range and a category, this will return
     a dictionary of ids and booking codes that are the result of such query.
 
-    Usage: define a QueryHandler object and run the update method
+    Usage: define a QueryHandler object, run the update method and access the results in the result attribute.
 
     Args (pd.DataFrame):
         query_category (Literal[QUERY_CATEGORIES]): A string among the elements of QUERY_CATEGORIES
@@ -41,9 +78,7 @@ class QueryHandler:
         updated_at (str): Timestamp for the time the update method was ran
     """
 
-    def __init__(
-        self, query_category: Literal[QUERY_CATEGORIES], id_range: Tuple[int, int]
-    ) -> None:
+    def __init__(self, query_category, id_range):
         self._query_category = query_category
         self._id_range = id_range
         self.init_result()
@@ -58,8 +93,8 @@ class QueryHandler:
         self.updated_at = None
 
     def update(self) -> None:
-        now = get_timestamp()
-        result = self.execute_query()
+        now = get_current_timestamp()
+        result = QueryResult(execute_query(self._engine, self._query))
         self.result = result
         self.result_count_ids = len(result)
         self.result_count_booking_codes = len(set(result.values()))
@@ -92,15 +127,6 @@ class QueryHandler:
             self.init_result()
         else:
             raise ValueError("Input (a,b) should satisfy 0 < a < b")
-
-    @time_function
-    def execute_query(self) -> QueryResult:
-
-        with self._engine.connect() as connection:
-            results_proxy = connection.execute(self._query)
-            result = QueryResult(results_proxy.fetchall())
-
-        return result
 
     def get_engine(self) -> Engine:
         if self.query_category.startswith("mysql_"):
@@ -231,7 +257,6 @@ class QueryHandler:
         )
 
         return query
-
 
 if __name__ == "__main__":
     id_min = 1354900
