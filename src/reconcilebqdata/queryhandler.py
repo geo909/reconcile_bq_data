@@ -1,70 +1,20 @@
-from dotenv import load_dotenv
-from pathlib import Path
-from sqlalchemy import Table
+from reconcilebqdata.aux import time_function, get_timestamp
+from reconcilebqdata.config import MYSQL_DATABASE
+from reconcilebqdata.databases import get_table, get_engine_mysql, get_engine_bigquery
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.sql.selectable import Select
 from typing import Literal, TypedDict, Tuple
-import datetime
-import json
-import os
 import sqlalchemy as sa
-import time
 
-dot_env_path = Path(__file__).parent.parent.parent / ".env"
-if dot_env_path.is_file():
-    load_dotenv()
 
-MYSQL_HOST = os.environ["MYSQL_HOST"]
-MYSQL_USER = os.environ["MYSQL_USER"]
-MYSQL_PORT = 3306
-MYSQL_PASSWORD = os.environ["MYSQL_PASSWORD"]
-MYSQL_DATABASE = os.environ["MYSQL_DATABASE"]
-MYSQL_URI = (
-    f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}/{MYSQL_DATABASE}"
-)
 
 # Always prefix categories by "mysql_" or "bigquery_"
 QUERY_CATEGORIES = ("mysql_trips", "mysql_open", "mysql_cnx", "bigquery_trips")
-
-BQ_PROJECT_ID = os.environ["BQ_PROJECT_ID"]
-BQ_CREDENTIALS_INFO = json.loads(os.environ["GCP_KEY_TZANAKIS_BIGQUERY"])
 
 
 class QueryResult(TypedDict):
     id: int
     booking_code: str
-
-
-def time_function(func):
-    """Decorator that logs the elapsed time of a function"""
-
-    def wrapper(*args, **kwargs):
-        start = time.time()
-        result = func(*args, **kwargs)
-        elapsed_seconds = round(time.time() - start, 2)
-        print(f"Elapsed: {elapsed_seconds}")
-        return result
-
-    return wrapper
-
-
-def get_timestamp() -> str:
-    now = (
-        datetime.datetime.now()
-        .replace(microsecond=0, tzinfo=datetime.timezone.utc)
-        .isoformat()
-    )
-    return now
-
-
-def get_table(engine: Engine, schema, table) -> Table:
-    return sa.Table(
-        table,
-        sa.MetaData(),
-        autoload=True,
-        autoload_with=engine,
-        schema=schema,
-    )
 
 
 class QueryHandler:
@@ -90,7 +40,6 @@ class QueryHandler:
         result_count_booking_codes: Distinct count of booking codes
         updated_at (str): Timestamp for the time the update method was ran
     """
-
 
     def __init__(
         self, query_category: Literal[QUERY_CATEGORIES], id_range: Tuple[int, int]
@@ -155,29 +104,13 @@ class QueryHandler:
 
     def get_engine(self) -> Engine:
         if self.query_category.startswith("mysql_"):
-            engine = self._engine_mysql()
+            engine = get_engine_mysql()
         elif self.query_category.startswith("bigquery_"):
-            engine = self._engine_bigquery()
+            engine = get_engine_bigquery()
         else:
             raise ValueError(
                 'query_category should be prefixed by "mysql_" or "bigquery_"'
             )
-        return engine
-
-    def _engine_mysql(self) -> Engine:
-
-        mysql_uri = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}"
-        engine = sa.create_engine(mysql_uri)
-        return engine
-
-    def _engine_bigquery(self) -> Engine:
-
-        engine = sa.create_engine(
-            f"bigquery://{BQ_PROJECT_ID}",
-            location="eu",
-            credentials_info=BQ_CREDENTIALS_INFO,
-        )
-
         return engine
 
     def get_query(self) -> Select:
@@ -302,7 +235,9 @@ class QueryHandler:
 
 if __name__ == "__main__":
     id_min = 1354900
-    range_ = (id_min, id_min + 1000)
+    range_ = (id_min, id_min + 100)
 
     handler = QueryHandler("mysql_cnx", range_)
+    handler.update()
+    print(handler.result)
     pass
