@@ -148,10 +148,19 @@ class QueryHandler:
             return self._query_mysql_cnx()
         elif self.query_category == "bigquery_trips":
             return self._query_bigquery_trips()
+        elif self.query_category == "bigquery_cnx":
+            return self._query_bigquery_cnx()
         else:
             raise ValueError(f'Query category "{self.query_category}" is not valid.')
 
     def _query_mysql_trips(self) -> Select:
+        """
+        Get trip IDs and FH codes for booked trips in our MySQL database
+        These are meant to be compared with the results of _query_bigquery_trips.
+
+        Returns:
+            query: A query to be executed with the appropriate sqlalchemy engine
+        """
 
         table_rbt = get_table(self._engine, MYSQL_DATABASE, "reservations_booked_trips")
         table_rb = get_table(self._engine, MYSQL_DATABASE, "reservations_bookings")
@@ -180,6 +189,14 @@ class QueryHandler:
         return query
 
     def _query_mysql_open(self) -> Select:
+        """
+        Get trip IDs and FH codes for all trips that have an active open request in our MySQL database.
+        These are meant to be compared with the results of _query_bigquery_open; bookings missing in any of the two
+        must be updated in BQ.
+
+        Returns:
+            query: A query to be executed with the appropriate sqlalchemy engine
+        """
 
         table_ror = get_table(
             self._engine, MYSQL_DATABASE, "reservations_open_requests"
@@ -206,6 +223,15 @@ class QueryHandler:
         return query
 
     def _query_mysql_cnx(self) -> Select:
+        """
+        Get trip IDs and FH codes for all trips that have a cancellation request in our MySQL database and are *not*
+        replaced.
+
+        These are meant to be compared with the results of _query_bigquery_cnx.
+
+        Returns:
+            query: A query to be executed with the appropriate sqlalchemy engine
+        """
 
         table_rr = get_table(self._engine, MYSQL_DATABASE, "reservations_reservations")
         table_rbt = get_table(self._engine, MYSQL_DATABASE, "reservations_booked_trips")
@@ -257,6 +283,31 @@ class QueryHandler:
         )
 
         return query
+
+    def _query_bigquery_cnx(self) -> Select:
+        """
+        Get trip IDs and FH codes for all trips that have a cancellation request in our BigQuery.
+
+        These are meant to be compared with the results of _query_mysql_cnx.
+
+        Returns:
+            query: A query to be executed with the appropriate sqlalchemy engine
+        """
+
+        table_brt = get_table(
+            self._engine, "booking_documents_production", "base_reporting_trips"
+        )
+
+        query = sa.select(
+            table_brt.columns.trip_id_trip,
+            table_brt.columns.booking_code,
+        ).where(
+              (table_brt.columns.trip_cancellation_request_id.is_not(None))
+            & (table_brt.columns.trip_id_trip.between(*self.id_range))
+        )
+
+        return query
+
 
 if __name__ == "__main__":
     id_min = 1354900
